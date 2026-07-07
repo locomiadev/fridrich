@@ -308,9 +308,9 @@ LINUX="vmlinuz-$(uname -r)" # SORRY IF YOU USE JUST vmlinuz OR bzImage :)
 # checking for GRUB/SYSTEMD-BOOT
 bootloader="unknown"
 if [ -d "/boot/loader/entries" ] || [ -f "/boot/loader/loader.conf" ]; then
-    BOOTLOADER="systemd-boot"
+    bootloader="systemd-boot"
 elif [ -f "/boot/grub/grub.cfg" ] || command -v grub-install >/dev/null 2>&1; then
-    BOOTLOADER="grub"
+    bootloader="grub"
 fi
 
 if [ "$bootloader" = "unknown" ]; then
