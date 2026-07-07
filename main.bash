@@ -1,7 +1,7 @@
 #!/bin/bash
 # This is a part of the UniqueOS Project
 # Supported by The QNU Project and NSA of RCL
-set -e
+#set -e
 Uniquever="Unique GNU/Linux 1.0-0f1BETA"
 
 yoo() {
@@ -304,6 +304,19 @@ yoo "(0%) Setting up temp environment..."
 mv initramfs.gz /boot/tmpinitrd.gz
 yoo "(50%) Setting up temp environment..."
 LINUX="vmlinuz-$(uname -r)" # SORRY IF YOU USE JUST vmlinuz OR bzImage :)
+
+# checking for GRUB/SYSTEMD-BOOT
+bootloader="unknown"
+if [ -d "/boot/loader/entries" ] || [ -f "/boot/loader/loader.conf" ]; then
+    BOOTLOADER="systemd-boot"
+elif [ -f "/boot/grub/grub.cfg" ] || command -v grub-install >/dev/null 2>&1; then
+    BOOTLOADER="grub"
+fi
+
+if [ "$bootloader" = "unknown" ]; then
+        echo "E010: Not supportable bootloader"
+        exit 10
+elif [ "$bootloader" = "grub" ]; then
 cat > /boot/grub/grub.cfg <<EOF
 set timeout=1
 set default=0
@@ -314,6 +327,20 @@ menuentry "Installer of UniqueOS ${Uniquever}" {
         initrd /boot/tmpinitramfs.gz
 }
 EOF
+elif [ "$bootloader" = "systemd-boot" ]; then
+cat > "/boot/loader/entries/uniqueos.conf" <<EOF
+title      ${Uniquever}
+linux      /vmlinuz-${LINUX}
+initrd     /tmpinitrd.gz
+options    rw quiet splash
+EOF
+
+cat > "/boot/loader/loader.conf" <<EOF
+default  uniqueos
+timeout  1
+EOF
+fi
+
 yoo "(100%) Setting up temp environment..."
 echo "Your computer will be restarted in 5 seconds..."
 sleep 5
