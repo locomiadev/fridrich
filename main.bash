@@ -363,7 +363,7 @@ fi
 
 yoo "(100%) Setting up temp environment..."
 if [ "$bootloader" = "kexec" ]; then
-        echo "Your computer will NOT be restarted in 5 seconds... (kexec: no BIOS, no GRUB, no problems)"
+        yoo "REBOOTING INTO INSTALLER"
         sleep 5
         sync
         exec kexec -e
@@ -371,5 +371,5 @@ fi
 echo "Your computer will be restarted in 5 seconds..."
 sleep 5
 exec /sbin/reboot
-# THIS SCRIPT CURRENTLY IS ON VERSION 0707-2026-2
+# THIS SCRIPT CURRENTLY IS ON VERSION 0707-2026-3
 # NOT TESTED ON ANY HARDWARE
