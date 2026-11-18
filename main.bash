@@ -28,7 +28,8 @@ yoo have some necro computer. On average, it takes for 15 to 30 minutes
 yoo to install it.
 yoo
 if [ "$BIOS" = "1" ]; then
-        yoo "BIOS mode ENABLED"
+        yoo "BIOS MODE ENABLED"
+fi
 yoo
 read -p "Proceed? (y/n): " lvl1
 if [ $lvl1 = "y" ]; then
