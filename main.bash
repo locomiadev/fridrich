@@ -7,6 +7,10 @@ Uniquever="Unique GNU/Linux 1.0-0f1BETA"
 yoo() {
         echo -e "\e[1;32m$@\e[0m"
 }
+BIOS=0
+if [ "$1" = "-b" ] && [ ! -d "/sys/firmware/efi" ]; then
+        BIOS=1
+fi
 yoo Welcome to the $Uniquever Installer!
 yoo ------------------------------------
 yoo "Unique GNU/Linux (c) The QNU Project"
@@ -23,6 +27,9 @@ yoo nobody will help you. Installation may be for a long time if you
 yoo have some necro computer. On average, it takes for 15 to 30 minutes
 yoo to install it.
 yoo
+if [ "$BIOS" = "1" ]; then
+        yoo "BIOS MODE ENABLED - MAY NOT WORK PROPERLY:)"
+fi
 yoo
 read -p "Proceed? (y/n): " lvl1
 if [ $lvl1 = "y" ]; then
@@ -75,7 +82,7 @@ fi
 
 yoo "(14%) Checking the system..."
 
-if [ ! -d "/sys/firmware/efi" ]; then
+if [ ! -d "/sys/firmware/efi" ] && [ "$BIOS" != "1" ]; then
         echo "E004: BIOS is not supported at this time"
         exit 4
 fi
@@ -97,7 +104,7 @@ yoo "(42%) Checking the system..."
 command -v curl >/dev/null 2>&1 || { echo "E100: Not installed curl"; exit 1; }
 command -v free >/dev/null 2>&1 || { echo "E101: Not installed free"; exit 1; }
 command -v df >/dev/null 2>&1 || { echo "E102: Not installed df"; exit 1; }
-command -v mokutil >/dev/null 2>&1 || { echo "E103: Not installed mokutil"; exit 1; }
+[ "$BIOS" = "1" ] || command -v mokutil >/dev/null 2>&1 || { echo "E103: Not installed mokutil"; exit 1; }
 yoo "(56%) Checking the system..."
 locomia=$(free -g | awk '/Mem:/ {print $2}')
 if [ "$locomia" -lt 4 ]; then
@@ -208,6 +215,11 @@ SWAP_FOUND=""
 EFI_SIZE=""
 SWAP_SIZE=""
 START_SECTOR=2048
+FIRST_TYPE="C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+if [ "$BIOS" = "1" ]; then
+    FIRST_TYPE="21686148-6449-6E6F-744E-656564454649"
+    EFI_SIZE=2048
+fi
 
 for part_path in /sys/class/block/${DISK_NAME}*; do
     [ -e "$part_path" ] || continue
@@ -217,7 +229,7 @@ for part_path in /sys/class/block/${DISK_NAME}*; do
 
     full_part_path="/dev/$part_name"
 
-    if lsblk -no FSTYPE "$full_part_path" 2>/dev/null | grep -q -E "vfat|fat"; then
+    if [ "$BIOS" != "1" ] && lsblk -no FSTYPE "$full_part_path" 2>/dev/null | grep -q -E "vfat|fat"; then
         EFI_FOUND="$full_part_path"
         EFI_SIZE=$(cat "$part_path/size" 2>/dev/null)
         echo "$full_part_path:/boot/efi" >> "$MOUNTS_CONF"
@@ -230,7 +242,7 @@ for part_path in /sys/class/block/${DISK_NAME}*; do
     fi
 done
 
-if [ -z "$EFI_FOUND" ]; then
+if [ -z "$EFI_FOUND" ] && [ "$BIOS" != "1" ]; then
     echo "[WARNING] This disc doesn't contain any EFI partition"
     read -p "Create new EFI partition (512 MiB)? (y/n): " auto_efi
 
@@ -257,7 +269,7 @@ echo "" >> "$FUTURE_LAYOUT"
 if [[ "$DISK_NAME" =~ "nvme" ]]; then PART_SUFFIX="p"
 fi
 
-echo "${DISK}${PART_SUFFIX}1 : start=$START_SECTOR, size=$EFI_SIZE, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B" >> "$FUTURE_LAYOUT"
+echo "${DISK}${PART_SUFFIX}1 : start=$START_SECTOR, size=$EFI_SIZE, type=$FIRST_TYPE" >> "$FUTURE_LAYOUT"
 START_SECTOR=$((START_SECTOR + EFI_SIZE))
 NEXT_PART_NUM=2
 
@@ -351,7 +363,7 @@ fi
 
 yoo "(100%) Setting up temp environment..."
 if [ "$bootloader" = "kexec" ]; then
-        yoo "Rebooting in the installer..."
+        echo "Your computer will NOT be restarted in 5 seconds... (kexec: no BIOS, no GRUB, no problems)"
         sleep 5
         sync
         exec kexec -e
@@ -359,5 +371,5 @@ fi
 echo "Your computer will be restarted in 5 seconds..."
 sleep 5
 exec /sbin/reboot
-# THIS SCRIPT CURRENTLY IS ON VERSION 0707-2026
+# THIS SCRIPT CURRENTLY IS ON VERSION 0707-2026-2
 # NOT TESTED ON ANY HARDWARE
