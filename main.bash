@@ -28,8 +28,7 @@ yoo have some necro computer. On average, it takes for 15 to 30 minutes
 yoo to install it.
 yoo
 if [ "$BIOS" = "1" ]; then
-        yoo "BIOS MODE ENABLED - MAY NOT WORK PROPERLY:)"
-fi
+        yoo "BIOS mode ENABLED"
 yoo
 read -p "Proceed? (y/n): " lvl1
 if [ $lvl1 = "y" ]; then
@@ -334,7 +333,7 @@ if [ "$bootloader" = "unknown" ]; then
         echo "E010: Not supportable bootloader"
         exit 10
 elif [ "$bootloader" = "kexec" ]; then
-        kexec -l /boot/${LINUX} --initrd=/boot/tmpinitrd.gz --command-line="rw quiet splash" || { echo "E011: kexec failed"; exit 11; }
+        kexec -l /boot/${LINUX} --initrd=/boot/tmpinitrd.gz --command-line="rw console=ttyS0,115200 console=tty0 ignore_loglevel nomodeset" || { echo "E011: kexec failed"; exit 11; }
 elif [ "$bootloader" = "grub" ]; then
 cp /boot/grub/grub.cfg /boot/grub/grub.cfg.bak
 cat > /boot/grub/grub.cfg <<EOF
@@ -363,7 +362,7 @@ fi
 
 yoo "(100%) Setting up temp environment..."
 if [ "$bootloader" = "kexec" ]; then
-        yoo "REBOOTING INTO INSTALLER"
+        echo "Rebooting Into Installer:)"
         sleep 5
         sync
         exec kexec -e
@@ -371,5 +370,5 @@ fi
 echo "Your computer will be restarted in 5 seconds..."
 sleep 5
 exec /sbin/reboot
-# THIS SCRIPT CURRENTLY IS ON VERSION 0707-2026-3
+# THIS SCRIPT CURRENTLY IS ON VERSION 0707-2026-4
 # NOT TESTED ON ANY HARDWARE
