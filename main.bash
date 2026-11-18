@@ -122,14 +122,15 @@ if mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled"; then
 fi
 yoo "(100%) Checking the system..."
 yoo "(0%) Configuring..."
-mapfile -t DISK_LINES < <(lsblk -dno NAME,SIZE,MOUNTPOINTS,TYPE 2>/dev/null | awk '
-{
+mapfile -t DISK_LINES < <(lsblk -dno NAME,SIZE,TYPE 2>/dev/null | awk '
+$3=="disk" {
     name = "/dev/" $1
     size = $2
     
     mount = ""
-    for (i=3; i<NF; i++) mount = mount $i " "
-    if (NF>=3) mount = mount $NF
+    cmd = "lsblk -no MOUNTPOINTS /dev/" $1 " 2>/dev/null"
+    while ((cmd | getline m) > 0) if (m != "") mount = mount m " "
+    close(cmd)
     
     info = " ( " name " ), " size
     if (mount != "") {
@@ -279,20 +280,22 @@ yoo "(60%) Preparing..."
 yoo "(100%) Preparing..."
 yoo "Generating initramfs..."
 mkdir initramfs
-mkdir -p initramfs/{dev,sys,etc,var,usr,bin,sbin,boot,srv,opt}
+mkdir -p initramfs/{dev,sys,proc,etc,var,usr,bin,sbin,boot,srv,opt}
 mv cfdisk.conf initramfs/
 mv mounts.conf initramfs/
 #cp /boot/vmlinuz-$(uname -r) initramfs/
 mv rootfs.txz initramfs/
 wget https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
 mv busybox initramfs/bin/
+chmod +x initramfs/bin/busybox
+mknod initramfs/dev/console c 5 1
 cat > initramfs/init <<EOF
 #!/bin/busybox sh
 busybox mount -t proc none /proc
 busybox mount -t sysfs none /sys
 busybox mount -t devtmpfs none /dev
 echo "UniqueOS is installing on your system..."
-exec /bin/sh
+exec busybox sh
 EOF
 chmod +x initramfs/init
 cd initramfs
@@ -307,7 +310,9 @@ LINUX="vmlinuz-$(uname -r)" # SORRY IF YOU USE JUST vmlinuz OR bzImage :)
 
 # checking for GRUB/SYSTEMD-BOOT
 bootloader="unknown"
-if [ -d "/boot/loader/entries" ] || [ -f "/boot/loader/loader.conf" ]; then
+if command -v kexec >/dev/null 2>&1; then
+    bootloader="kexec"
+elif [ -d "/boot/loader/entries" ] || [ -f "/boot/loader/loader.conf" ]; then
     bootloader="systemd-boot"
 elif [ -f "/boot/grub/grub.cfg" ] || command -v grub-install >/dev/null 2>&1; then
     bootloader="grub"
@@ -316,7 +321,10 @@ fi
 if [ "$bootloader" = "unknown" ]; then
         echo "E010: Not supportable bootloader"
         exit 10
+elif [ "$bootloader" = "kexec" ]; then
+        kexec -l /boot/${LINUX} --initrd=/boot/tmpinitrd.gz --command-line="rw quiet splash" || { echo "E011: kexec failed"; exit 11; }
 elif [ "$bootloader" = "grub" ]; then
+cp /boot/grub/grub.cfg /boot/grub/grub.cfg.bak
 cat > /boot/grub/grub.cfg <<EOF
 set timeout=1
 set default=0
@@ -324,13 +332,13 @@ set menu_color_normal=white/black
 set menu_color_highlight=red/black
 menuentry "Installer of UniqueOS ${Uniquever}" {
         linux /boot/${LINUX} root=current rw quiet splash
-        initrd /boot/tmpinitramfs.gz
+        initrd /boot/tmpinitrd.gz
 }
 EOF
 elif [ "$bootloader" = "systemd-boot" ]; then
 cat > "/boot/loader/entries/uniqueos.conf" <<EOF
 title      ${Uniquever}
-linux      /vmlinuz-${LINUX}
+linux      /${LINUX}
 initrd     /tmpinitrd.gz
 options    rw quiet splash
 EOF
@@ -342,6 +350,12 @@ EOF
 fi
 
 yoo "(100%) Setting up temp environment..."
+if [ "$bootloader" = "kexec" ]; then
+        yoo "Rebooting in the installer..."
+        sleep 5
+        sync
+        exec kexec -e
+fi
 echo "Your computer will be restarted in 5 seconds..."
 sleep 5
 exec /sbin/reboot
